@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Compressão de Imagem JS Puro</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h2>Compressão de Imagem em JS Puro</h2>
+
+  <input type="file" id="imageInput" accept="image/*">
+  <br><br>
+  <label>
+    Nível de Compressão:
+    <input type="range" id="compressionRange" min="10" max="255" step="5" value="50">
+    <span id="compressionValue">50</span>
+  </label>
+
+  <div class="canvas-container">
+    <div>
+      <h3>Imagem Original</h3>
+      <canvas id="originalCanvas"></canvas>
+    </div>
+    <div>
+      <h3>Imagem Comprimida</h3>
+      <canvas id="compressedCanvas"></canvas>
+    </div>
+  </div>
+
+  <h3>Pixel Selecionado (Clique na imagem comprimida)</h3>
+  <p id="pixelInfo">R: -, G: -, B: -</p>
+  <p id="sizeInfo">Tamanho da Imagem: -</p>
+
+  <script>
+    const imageInput = document.getElementById("imageInput");
+    const compressionRange = document.getElementById("compressionRange");
+    const compressionValue = document.getElementById("compressionValue");
+    const originalCanvas = document.getElementById("originalCanvas");
+    const compressedCanvas = document.getElementById("compressedCanvas");
+    const pixelInfo = document.getElementById("pixelInfo");
+    const sizeInfo = document.getElementById("sizeInfo");
+
+    const oCtx = originalCanvas.getContext("2d");
+    const cCtx = compressedCanvas.getContext("2d");
+
+    let img = new Image();
+
+    const MAX_WIDTH = 800;
+    const MAX_HEIGHT = 600;
+
+    function applyCompression(level) {
+      if (!img) return;
+
+      // Desenha imagem original no canvas comprimido
+      cCtx.drawImage(img, 0, 0, compressedCanvas.width, compressedCanvas.height);
+
+      const imageData = cCtx.getImageData(0, 0, compressedCanvas.width, compressedCanvas.height);
+      const data = imageData.data;
+
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = Math.floor(data[i] / level) * level;       // R
+        data[i+1] = Math.floor(data[i+1] / level) * level;   // G
+        data[i+2] = Math.floor(data[i+2] / level) * level;   // B
+      }
+
+      cCtx.putImageData(imageData, 0, 0);
+
+      // Atualiza tamanho das imagens
+      updateImageSizes();
+    }
+
+    function dataURLtoBytes(dataURL) {
+      const base64String = dataURL.split(',')[1];
+      return Math.ceil((base64String.length * 3) / 4);
+    }
+
+    function updateImageSizes() {
+      const originalDataURL = originalCanvas.toDataURL("image/png");
+      const compressedDataURL = compressedCanvas.toDataURL("image/jpeg", 0.7); // mais visível
+
+      const originalSize = dataURLtoBytes(originalDataURL);
+      const compressedSize = dataURLtoBytes(compressedDataURL);
+
+      sizeInfo.textContent = `Original: ${originalSize} bytes | Comprimida: ${compressedSize} bytes`;
+    }
+
+    imageInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      img = new Image();
+      img.onload = () => {
+        // Redimensiona mantendo proporção
+        let imgWidth = img.width;
+        let imgHeight = img.height;
+
+        if (imgWidth > MAX_WIDTH) {
+          const ratio = MAX_WIDTH / imgWidth;
+          imgWidth = MAX_WIDTH;
+          imgHeight = imgHeight * ratio;
+        }
+        if (imgHeight > MAX_HEIGHT) {
+          const ratio = MAX_HEIGHT / imgHeight;
+          imgHeight = MAX_HEIGHT;
+          imgWidth = imgWidth * ratio;
+        }
+
+        originalCanvas.width = imgWidth;
+        originalCanvas.height = imgHeight;
+        compressedCanvas.width = imgWidth;
+        compressedCanvas.height = imgHeight;
+
+        oCtx.drawImage(img, 0, 0, imgWidth, imgHeight);
+        applyCompression(Number(compressionRange.value));
+      };
+      img.src = URL.createObjectURL(file);
+    });
+
+    compressionRange.addEventListener("input", () => {
+      const level = Number(compressionRange.value);
+      compressionValue.textContent = level;
+      applyCompression(level);
+    });
+
+    compressedCanvas.addEventListener("click", (e) => {
+      const rect = compressedCanvas.getBoundingClientRect();
+      const x = Math.floor(e.clientX - rect.left);
+      const y = Math.floor(e.clientY - rect.top);
+      const pixel = cCtx.getImageData(x, y, 1, 1).data;
+      pixelInfo.textContent = `R: ${pixel[0]}, G: ${pixel[1]}, B: ${pixel[2]}`;
+    });
+  </script>
+</body>
+</html>
